@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QSPS Interactive Audit Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Using html2pdf.js for robust PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" xintegrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .no-print {
+            display: initial;
+        }
+        .audit-content-area {
+            margin-top: 2rem; /* Adds visual space in the web view */
+        }
+        .chevron {
+            transition: transform 0.3s ease;
+        }
+        .evidence-preview {
+            max-height: 200px;
+            max-width: 100%;
+            object-fit: contain;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            margin-top: 8px;
+        }
+        /* Styles applied only during PDF generation to reduce font size and improve layout */
+        .pdf-export-mode {
+            font-size: 11px; /* Base font size for PDF */
+        }
+        .pdf-export-mode h1 {
+            font-size: 22px;
+        }
+        .pdf-export-mode h2 {
+            font-size: 16px;
+        }
+        .pdf-export-mode p, .pdf-export-mode label, .pdf-export-mode span, .pdf-export-mode div, .pdf-export-mode select, .pdf-export-mode input {
+             font-size: 11px;
+        }
+        .pdf-export-mode .text-2xl {
+             font-size: 18px;
+        }
+        .pdf-export-mode textarea {
+            font-size: 11px;
+            min-height: 40px;
+        }
+        .section-wrapper-pdf {
+            page-break-inside: avoid;
+            margin-bottom: 1rem;
+        }
+        .checkpoint-item-pdf {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="app" class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- Main container for the form to be exported -->
+        <div id="printable-area" class="bg-white rounded-lg shadow-lg p-8">
+            
+            <!-- Wrapper for the first page content -->
+            <div id="report-header">
+                <!-- Header Section -->
+                <header class="mb-8 border-b pb-6">
+                    <div class="text-center mb-6">
+                        <h1 class="text-3xl font-bold text-gray-800">Quality System & Product Safety (QSPS) Audit Report</h1>
+                        <p class="text-gray-500 mt-1">Version 1.0, QMS -DBL group</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label for="audit-scope-select" class="block text-sm font-medium text-gray-700">Audit Scope</label>
+                            <select id="audit-scope-select" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
+                                <option>JKL- Cutting</option>
+                                <option>JKL-01</option>
+                                <option>JKL-02</option>
+                                <option>JKL-03</option>
+                                <option>JKL-04</option>
+                                <option>JKL-05</option>
+                                <option>JKL-06</option>
+                                <option value="other">Other (Please specify)</option>
+                            </select>
+                            <input type="text" id="audit-scope-manual" placeholder="Enter custom scope" class="mt-2 hidden w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
+                        </div>
+                        <div>
+                            <label for="audit-date" class="block text-sm font-medium text-gray-700">Date of Audit</label>
+                            <input type="date" id="audit-date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
+                        </div>
+                        <div>
+                            <label for="auditor-name" class="block text-sm font-medium text-gray-700">Auditor</name>
+                            <input type="text" id="auditor-name" placeholder="Enter auditor's name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Score Summary Section -->
+                <div id="score-summary" class="mb-8 p-6 bg-gray-50 rounded-lg grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Possible Score</p>
+                        <p id="possible-score" class="text-2xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Points Earned</p>
+                        <p id="earned-score" class="text-2xl font-bold text-indigo-600">0</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Final Score (%)</p>
+                        <p id="final-score" class="text-2xl font-bold text-indigo-600">0.00%</p>
+                    </div>
+                     <div>
+                        <p class="text-sm font-medium text-gray-500">Status</p>
+                        <p id="status" class="text-2xl font-bold text-gray-800">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Checkpoints Container (starts on page 2 in PDF) -->
+            <div id="audit-sections" class="audit-content-area">
+                 <p class="text-sm text-gray-500 mb-4 no-print italic">Hint: Click an active 'Pass' or 'Fail' button again to mark a checkpoint as unaudited.</p>
+                <!-- Sections will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mt-8 flex justify-end space-x-4 no-print">
+            <button id="export-pdf" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                Export as PDF
+            </button>
+            <button id="submit-report" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                Submit Report
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Data for the audit report
+            const auditData = [
+                {
+                    section: "Section I: General Quality Management System & Product Safety",
+                    checkpoints: [
+                        { clause: "1.1", text: "Are the Standard procedure/ Work Instructions/Flow Chart clearly Visible and well communicated for all the process?" },
+                        { clause: "1.2", text: "Are the quality Policy & product Safety Policy effectively communicated with all the personnel?" },
+                        { clause: "1.3", text: "Are the quality Objectives are effectively communicated with all the personnel?" },
+                        { clause: "1.4", text: "Are the Personell adequately trainined and competent for his roles? Are they well known about their job descriptions?" },
+                        { clause: "1.5", text: "Is the work environment/ Housekeeping are well organized? Are materials kept away from wall (50 cm from exterior wall), windows (150 cm from window and door)?" },
+                        { clause: "1.6", text: "Are the sharp tools control procedure effectively funtioning at the workstation?" },
+                        { clause: "1.7", text: "Is the broken needle & sharp tools control procedure effectively functioning at the workstation?" },
+                        { clause: "1.8", text: "Is there any glass items, brittle plastic, chemical items found in the production floor?" },
+                        { clause: "1.9", text: "Are all chemicals approved from the buyer and stored with MSDS?" },
+                        { clause: "1.10", text: "Is there any potential risk of sharp tools, metal contamination into the product?" },
+                        { clause: "1.11", text: "Is there any pest control management system established?" },
+                        { clause: "1.12", text: "Are all lights, fans, and glasses covered with protective shields?" },
+                    ]
+                },
+                {
+                    section: "Section II: Raw Material & Trims Control",
+                    checkpoints: [
+                        { clause: "2.01", text: "Are all the approved trims/accessories card available at the store?" },
+                        { clause: "2.02", text: "Are all trims/accessories/materials checked against the approval card before issuing to the production?" },
+                        { clause: "2.03", text: "Are all trims/accessories/materials stored in a designated place with proper identification?" },
+                        { clause: "2.04", text: "Is there any potential risk of metal contamination from the trims/accessories?" },
+                        { clause: "2.05", text: "Are all non-confirming trims/accessories/goods kept into the locked box(RED box) with records?" },
+                    ]
+                },
+                {
+                    section: "Section III: Cutting",
+                    checkpoints: [
+                        { clause: "3.01", text: "Are the approved markers, patterns, and samples available in the cutting section?" },
+                        { clause: "3.02", text: "Is the fabric relaxation report maintained properly?" },
+                        { clause: "3.03", text: "Is the shade band/blanket available and used for shade segregation?" },
+                        { clause: "3.04", text: "Are the cut panels checked 100% for defects?" },
+                        { clause: "3.05", text: "Is there a proper numbering system for bundles?" },
+                        { clause: "3.06", text: "Are the cutting tools (scissors, blades) controlled and recorded?" },
+                    ]
+                },
+                {
+                    section: "Section IV: Sewing",
+                    checkpoints: [
+                        { clause: "4.1", text: "Are cut parts stored with proper documentation and traceability?" },
+                        { clause: "4.2", text: "Are printed/embroidered panels received and inspected?" },
+                        { clause: "4.3", text: "Are inputs placed style-wise, color-wise, and size-wise?" },
+                        { clause: "4.4", text: "Are cut panels verified using TMB check with grading pattern?" },
+                        { clause: "4.5", text: "Are trims and accessories checked against approved trim card and BOM?" },
+                        { clause: "4.6", text: "Has a risk assessment been conducted before starting the size set?" },
+                        { clause: "4.7", text: "Is the before-wash measurement checked by the Quality Officer?" },
+                        { clause: "4.8", text: "Are approved mock-up samples available at each workstation?" },
+                        { clause: "4.9", text: "Does the Roving QC verify critical operations hourly and general operations every two hours?" },
+                        { clause: "4.10", text: "Are 7 garments randomly inspected for workmanship and 3 for critical measurements?" },
+                        { clause: "4.11", text: "Are corrective actions verified and documented before changing TLS status RED to Yellow ?" },
+                        { clause: "4.12", text: "Are all red card responses documented and resolved collaboratively?" },
+                        { clause: "4.13", text: "Individual Machine Stop: Is the machine stopped immediately upon red card without email?" },
+                        { clause: "4.14", text: "Whole Line Stop: Is production halted for critical issues (e.g., wrong print, fabric mismatch)? Is an email sent to management before stopping the entire line?" },
+                        { clause: "4.15", text: "Is the Roving QC Inspection Report updated, analyzed and summarized end of day with Top defects ?" },
+                        { clause: "4.16", text: "Are tech packs, trim cards, measurement charts, and artwork visibly posted or filed?" },
+                        { clause: "4.17", text: "Is the first output garment inspected and reported?" },
+                        { clause: "4.18", text: "Are garments inspected clockwise and anticlockwise?" },
+                        { clause: "4.19", text: "Is shading compared between front/back and body/sleeve?" },
+                        { clause: "4.20", text: "Are 3 garments measured every 2 hours across all processes?" },
+                        { clause: "4.21", text: "Are defective garments separated in a designated box? Is an hourly inspection report prepared and maintained?" },
+                        { clause: "4.22", text: "Is Neck Stretch 100% of kids’ garments tested with zero tolerance?" },
+                        { clause: "4.23", text: "Is the heat transfer machine and surrounding area clean and organized?" },
+                        { clause: "4.24", text: "Is the machine calibrated every 4 hours using a thermometer or thermal paper?" },
+                        { clause: "4.25", text: "Is the data sheet from the supplier available and followed?" },
+                        { clause: "4.26", text: "Are time, temperature, and pressure parameters set as per the requirement?" },
+                        { clause: "4.27", text: "Are 10 garments randomly checked after machine setup?" },
+                        { clause: "4.28", text: "Is bond strength testing performed as per buyer requirements?" },
+                        { clause: "4.29", text: "Are washed garments hung and verified before finishing?" },
+                        { clause: "4.30", text: "Is the pull test machine in good condition (On/Off switch, pressure indicator)?" },
+                        { clause: "4.31", text: "Is the machine alignment correct? Is the hook adapter properly adjusted?" },
+                        { clause: "4.32", text: "Is the machine calibrated daily using a 6.82 kg weight bar?" },
+                        { clause: "4.33", text: "Is pull testing done every 2 hours? Are results recorded and retained as per customer guidelines?" },
+                        { clause: "4.34", text: "Is button thickness with fabric checked as per data sheet? Is pinch setting verified hourly using a digital slide caliper?" },
+                        { clause: "4.35", text: "Is a pull test conducted after pinch setting verification?" },
+                        { clause: "4.36", text: "Are the rejected goods segrigated , locked with accurate data and reviewed properly?" },
+                        { clause: "4.37", text: "Availability of Machine Maintenance Report Per Sewing Machine" },
+                        { clause: "4.38", text: "Are the Needle control procedure effectively funtioning at the workstations? - Idle machines are identified with label - No spare needle at workstation -No Foreign Needle at workstation -New needle are withdrawn with application form -Missing needles are carried out all the criteria and resume with application form" },
+                        { clause: "4.39", text: "Accurate Needle Inventory Control System In Place (Data Against Physical Stock) And Internal Storage Time Policy For Broken / Damages Needle" },
+                        { clause: "4.40", text: "Are all sewing area clean, tidy and free from excess fabric scrapes, threads or personal items?" },
+                        { clause: "4.41", text: "Are all sewing machine guards in place and good condition?" },
+                        { clause: "4.42", text: "Are all measuring devices (e.g. scale, thermometer, hygrometer, weight scale, M/D machine, pull test machine, heat seal machine etc.) within calibration date?" },
+                        { clause: "4.43", text: "Are sharp tools (scissor, cutter, screw driver, gimlet, tape dispenser, tag gun etc.) attached to the work station by cotton drawstring or kept in a designated and secured box when not in use?" },
+                        { clause: "4.44", text: "Are only authorized and necessary sharp tools present on the sewing floor?" },
+                        { clause: "4.45", text: "Are correct SPI/SPC maintained at the process?" },
+                        { clause: "4.46", text: "Are all sewing machine cleaned and oil level accurate?" },
+                        { clause: "4.47", text: "Are all sharp tools returned end of the day?" },
+                        { clause: "4.48", text: "Branded materials issued, stock and retrurned quantity are accurate with adeqaute documents are in place?" },
+                        { clause: "4.49", text: "All branded materials are kept into the locked box?" },
+                        { clause: "4.50", text: "Are excess items/label returned to the store with proper documentation?" },
+                        { clause: "4.51", text: "A proper inventory system maintained for all the incoming and out going sharp tools?" },
+                        { clause: "4.52", text: "Are there identified broken or broken edge sharp tools used at the work station?" }
+                    ]
+                },
+                {
+                    section: "Section V: Ironing Section",
+                    checkpoints: [
+                        { clause: "5.00", text: "Availability Of Pressing Instruction ( Include But Not Limited To No Lustering Marks, No Pressing Marks/Impression At The Back Body Caused By Zipper / Embellishment, Temperature Aligned To Care Label , Etc )" },
+                        { clause: "5.01", text: "Availability of approved pressing sample (with authorized signature)" },
+                        { clause: "5.02", text: "Implementing a presentable cover system - cover changed with records" },
+                        { clause: "5.03", text: "Clear separation of product for pressing & pressed (hanged or folded properly)" },
+                        { clause: "5.04", text: "Implementing random moisture content checking by using a calibrated moisture meter with record" },
+                        { clause: "5.05", text: "Availability of humidity control room (in case moisture content is out of standard)" }
+                    ]
+                },
+                {
+                    section: "Section VI: Finishing Quality Checking",
+                    checkpoints: [
+                        { clause: "6.00", text: "Approved / reference sample & trim cards or duplicate copy ( with authorized signature)" },
+                        { clause: "6.01", text: "Implementing 100% inspection for workmanship / measurement / appearance / embellishment and no thread cutting is carried out by inspector" },
+                        { clause: "6.02", text: "Implementing stocking policy, clear identification of garment inspected, rejected & waiting to be inspected, and non- conforming products are being identified & segregated" },
+                        { clause: "6.03", text: "Inspection reports are analyzed for further improvement" }
+                    ]
+                },
+                {
+                    section: "Section VII: Folding / Packing section",
+                    checkpoints: [
+                        { clause: "7.00", text: "Approved / reference sample available to show packing requirement with authorized signature" },
+                        { clause: "7.01", text: "A clear separation of size / color of packaging trims" },
+                        { clause: "7.02", text: "Implementing one style / one color / one size policy" },
+                        { clause: "7.03", text: "Implementing stocking policy for folded / packed products" },
+                        { clause: "7.04", text: "Is packing materials clean & free from damage or contamination?" },
+                        { clause: "7.05", text: "Are unauthorized sharp tools used inside the packing section?" }
+                    ]
+                },
+                {
+                    section: "Section VIII: Metal Detection Control",
+                    checkpoints: [
+                        { clause: "8.01", text: "Equipped with a metal free-table, contamination box for quarantine items (locked / secured and documented), a calibrated hand-held md machine and fe ferrous card (1.0 / 1.2 / 1.5 mm)" },
+                        { clause: "8.02", text: "Implementing a metal free zone area (operators are metal free - watch / belt / accessories etc)" },
+                        { clause: "8.03", text: "MD records are analysed for further improvement and kept inside the cabinet" },
+                        { clause: "8.04", text: "Correct execution of hand held detection for products not passing md machine" },
+                        { clause: "8.05", text: "All cartons before and after md detection are placed on the plastic / metal (rush free metal pallet)" },
+                        { clause: "8.06", text: "Were all test results recorded correctly on the daily metal detector log sheet?" },
+                        { clause: "8.07", text: "Is the metal detection area segregated to prevent contamination of detected items?" },
+                        { clause: "8.08", "text": "Is there a clear procedure for handling rejected/alarmed garments?" },
+                        { clause: "8.09", text: "Is there a designated , secured area for rejected garments established?" },
+                        { clause: "8.10", text: "Is the investigation process for metal contamination documented?" },
+                        { clause: "8.11", text: "Are findings of metal contamination recorded?" },
+                        { clause: "8.12", text: "Are all non-confirming trims/accessories/goods kept into the locked box(RED box) with records for 3-6 months?" },
+                        { clause: "8.13", text: "Disposal records of non-confirming trims/accessories/goods are maintained." },
+                    ]
+                }
+            ];
+
+            const sectionsContainer = document.getElementById('audit-sections');
+            
+            // Function to generate the HTML for each checkpoint
+            auditData.forEach((sectionData, sectionIndex) => {
+                const sectionWrapper = document.createElement('div');
+                sectionWrapper.className = 'mb-4 section-wrapper-pdf';
+
+                const toggleEl = document.createElement('div');
+                toggleEl.className = 'section-toggle cursor-pointer flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border';
+                toggleEl.innerHTML = `<h2 class="text-xl font-bold text-gray-800">${sectionData.section}</h2><svg class="w-6 h-6 chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+                
+                const contentEl = document.createElement('div');
+                contentEl.className = 'space-y-6 p-4 border border-t-0 border-gray-200 rounded-b-lg hidden section-content';
+
+                sectionData.checkpoints.forEach((checkpoint, cpIndex) => {
+                    const checkpointId = `s${sectionIndex}-cp${cpIndex}`;
+                    const checkpointEl = document.createElement('div');
+                    checkpointEl.className = 'p-4 border border-gray-200 rounded-lg checkpoint-item-pdf';
+                    checkpointEl.innerHTML = `
+                        <div class="flex flex-col md:flex-row md:items-start md:justify-between">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-700">${checkpoint.clause}. ${checkpoint.text}</p>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-3 md:mt-0 md:ml-4 no-print">
+                                <button data-score="1" data-id="${checkpointId}" class="score-btn bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-green-500 hover:text-white">Pass (1)</button>
+                                <button data-score="0" data-id="${checkpointId}" class="score-btn bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-red-500 hover:text-white">Fail (0)</button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label for="findings-${checkpointId}" class="text-sm font-medium text-gray-600">Findings / Nonconformity Summary:</label>
+                            <textarea id="findings-${checkpointId}" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" placeholder="Describe findings..."></textarea>
+                        </div>
+                        <div class="mt-3">
+                            <div class="no-print">
+                                <label for="evidence-${checkpointId}" class="text-sm font-medium text-gray-600">Objective Evidence:</label>
+                                <div class="flex items-center mt-1">
+                                    <input type="file" id="evidence-${checkpointId}" class="hidden evidence-input" accept="image/*">
+                                    <label for="evidence-${checkpointId}" class="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        Attach Photo
+                                    </label>
+                                    <a href="#" target="_blank" id="filename-${checkpointId}" class="ml-3 text-sm text-blue-600 hover:underline">No file chosen</a>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <img id="preview-${checkpointId}" class="evidence-preview hidden" src="" alt="Evidence Preview">
+                            </div>
+                        </div>
+                        <input type="hidden" class="score-value" id="score-${checkpointId}" value="-1">
+                    `;
+                    contentEl.appendChild(checkpointEl);
+                });
+                
+                sectionWrapper.appendChild(toggleEl);
+                sectionWrapper.appendChild(contentEl);
+                sectionsContainer.appendChild(sectionWrapper);
+            });
+
+            // Add event listeners for collapsible sections
+            document.querySelectorAll('.section-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const content = toggle.nextElementSibling;
+                    const chevron = toggle.querySelector('.chevron');
+                    content.classList.toggle('hidden');
+                    chevron.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+                });
+            });
+
+            // Function to update the total score based on audited points
+            function updateScore() {
+                let earnedScore = 0;
+                let auditedPoints = 0;
+                const scoreInputs = document.querySelectorAll('.score-value');
+
+                scoreInputs.forEach(input => {
+                    const score = parseInt(input.value, 10);
+                    if (score !== -1) {
+                        auditedPoints++;
+                        if (score === 1) {
+                            earnedScore++;
+                        }
+                    }
+                });
+
+                const finalPercentage = auditedPoints > 0 ? (earnedScore / auditedPoints) * 100 : 0;
+                
+                document.getElementById('possible-score').textContent = auditedPoints;
+                document.getElementById('earned-score').textContent = earnedScore;
+                document.getElementById('final-score').textContent = `${finalPercentage.toFixed(2)}%`;
+
+                const statusEl = document.getElementById('status');
+                if (auditedPoints === 0) {
+                    statusEl.textContent = '-';
+                    statusEl.className = 'text-2xl font-bold text-gray-800';
+                } else if (finalPercentage >= 85) {
+                    statusEl.textContent = 'Pass';
+                    statusEl.className = 'text-2xl font-bold text-green-600';
+                } else if (finalPercentage >= 70) {
+                    statusEl.textContent = 'Conditional Pass';
+                    statusEl.className = 'text-2xl font-bold text-yellow-500';
+                } else {
+                    statusEl.textContent = 'Fail';
+                    statusEl.className = 'text-2xl font-bold text-red-600';
+                }
+            }
+
+            // Add event listeners to score buttons
+            document.querySelectorAll('.score-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const id = this.dataset.id;
+                    const scoreInput = document.getElementById(`score-${id}`);
+                    const currentScore = scoreInput.value;
+                    const newScore = this.dataset.score;
+
+                    if (currentScore === newScore) {
+                        scoreInput.value = -1;
+                        this.classList.remove('bg-green-500', 'text-white', 'bg-red-500');
+                        this.classList.add('bg-gray-200', 'text-gray-700');
+                    } else {
+                        scoreInput.value = newScore;
+                        const parent = this.parentElement;
+                        parent.querySelectorAll('.score-btn').forEach(btn => {
+                            btn.classList.remove('bg-green-500', 'text-white', 'bg-red-500');
+                            btn.classList.add('bg-gray-200', 'text-gray-700');
+                        });
+                        this.classList.add(newScore === '1' ? 'bg-green-500' : 'bg-red-500', 'text-white');
+                    }
+                    updateScore();
+                });
+            });
+
+            // Add event listeners for file inputs
+            document.querySelectorAll('.evidence-input').forEach(input => {
+                input.addEventListener('change', function() {
+                    const id = this.id.replace('evidence-', '');
+                    const filenameLink = document.getElementById(`filename-${id}`);
+                    const previewImg = document.getElementById(`preview-${id}`);
+                    
+                    if (this.files && this.files[0]) {
+                        const file = this.files[0];
+                        const reader = new FileReader();
+
+                        reader.onload = function(e) {
+                            previewImg.src = e.target.result;
+                            previewImg.classList.remove('hidden');
+                            filenameLink.href = e.target.result;
+                            filenameLink.textContent = file.name;
+                        };
+
+                        reader.readAsDataURL(file);
+                    } else {
+                        previewImg.src = '';
+                        previewImg.classList.add('hidden');
+                        filenameLink.href = '#';
+                        filenameLink.textContent = 'No file chosen';
+                    }
+                });
+            });
+            
+            // Logic for the audit scope dropdown
+            const auditScopeSelect = document.getElementById('audit-scope-select');
+            const auditScopeManual = document.getElementById('audit-scope-manual');
+
+            auditScopeSelect.addEventListener('change', function() {
+                if (this.value === 'other') {
+                    auditScopeManual.classList.remove('hidden');
+                    auditScopeManual.focus();
+                } else {
+                    auditScopeManual.classList.add('hidden');
+                }
+            });
+
+            // Set current date
+            document.getElementById('audit-date').valueAsDate = new Date();
+
+            // Export to PDF functionality
+            document.getElementById('export-pdf').addEventListener('click', () => {
+                const button = document.getElementById('export-pdf');
+                button.textContent = 'Generating...';
+                button.disabled = true;
+
+                const element = document.getElementById('printable-area');
+                
+                // Add temporary class for PDF-specific styling
+                element.classList.add('pdf-export-mode');
+                
+                // Temporarily expand all sections for printing
+                const allContent = document.querySelectorAll('.section-content');
+                const wasHidden = [];
+                allContent.forEach((content, index) => {
+                    wasHidden[index] = content.classList.contains('hidden');
+                    content.classList.remove('hidden');
+                });
+                
+                const opt = {
+                    margin:       5, // Reduced margin for more content per page
+                    filename:     `QSPS_Audit_Report_${new Date().toISOString().slice(0,10)}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak:    { mode: ['avoid-all', 'css'], before: '.section-wrapper-pdf' }
+                };
+
+                html2pdf().from(element).set(opt).save().then(() => {
+                    // Restore the original state after PDF is saved
+                    element.classList.remove('pdf-export-mode');
+                    allContent.forEach((content, index) => {
+                        if (wasHidden[index]) {
+                            content.classList.add('hidden');
+                        }
+                    });
+                    button.textContent = 'Export as PDF';
+                    button.disabled = false;
+                }).catch(err => {
+                    console.error("Error generating PDF:", err);
+                    alert("Could not generate PDF. See console for details.");
+                     element.classList.remove('pdf-export-mode');
+                     allContent.forEach((content, index) => {
+                        if (wasHidden[index]) {
+                            content.classList.add('hidden');
+                        }
+                    });
+                    button.textContent = 'Export as PDF';
+                    button.disabled = false;
+                });
+            });
+
+            // Placeholder for Submit functionality
+            document.getElementById('submit-report').addEventListener('click', () => {
+                alert('Report submitted! (This is a demo. In a real application, this would send data to a server.)');
+            });
+
+            // Initial score calculation
+            updateScore();
+        });
+    </script>
+</body>
+</html>
